@@ -1,8 +1,15 @@
 package com.example.asskick
 
+import android.Manifest
 import android.app.Activity
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
+import android.provider.Telephony
+import android.telephony.SmsManager
+import android.telephony.TelephonyCallback
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.*
@@ -21,6 +28,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.constraintlayout.compose.ConstraintSet
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.example.asskick.ui.theme.AssKickTheme
 import com.example.asskick.ui.theme.Typography
 
@@ -204,11 +213,11 @@ fun purchaseUI(context: Activity){
                     .alpha(if (visible) 1f else 0f)
             ) {
                 Text(
-                    text = "Copy",
+                    text = "Send",
                     modifier = Modifier
                         .padding(top = 10.dp, end = 10.dp)
                         .clickable {
-
+                            sendMessage(context,"456",msg)
                             visible = false
                             msg=" "
                         }
@@ -229,6 +238,23 @@ fun purchaseUI(context: Activity){
         }
 
     }
+}
+
+fun  sendMessage(context: Activity,recipient:String, message:String){
+
+    val permissions= arrayOf(Manifest.permission.SEND_SMS)
+    if(ContextCompat.checkSelfPermission(context,Manifest.permission.SEND_SMS)!=PackageManager.PERMISSION_GRANTED){
+        ActivityCompat.requestPermissions(context,permissions,0x32)
+
+
+    }else{
+        val intent= Intent(Telephony.Sms.Intents.ACTION_CHANGE_DEFAULT)
+        intent.putExtra(Telephony.Sms.Intents.EXTRA_PACKAGE_NAME,context.packageName)
+        context.startActivity(intent)
+        val smsManager=SmsManager.getDefault()
+        smsManager.sendTextMessage(recipient,null,message,null,null)
+    }
+
 }
 @Composable
 fun Greeting(name: String) {
