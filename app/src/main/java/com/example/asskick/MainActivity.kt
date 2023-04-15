@@ -1,10 +1,16 @@
 package com.example.asskick
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.role.RoleManager
+import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.provider.Telephony
 import android.telephony.SmsManager
 import android.telephony.TelephonyCallback
@@ -36,13 +42,13 @@ import com.example.asskick.ui.theme.Typography
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         setContent {
             AssKickTheme {
                 // A surface container using the 'background' color from the theme
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colors.background
-                ) {
+                    color = MaterialTheme.colors.background) {
                    UI(this)
                 }
             }
@@ -62,7 +68,6 @@ fun UI(context:Activity){
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun purchaseUI(context: Activity){
 
@@ -217,7 +222,7 @@ fun purchaseUI(context: Activity){
                     modifier = Modifier
                         .padding(top = 10.dp, end = 10.dp)
                         .clickable {
-                            sendMessage(context,"456",msg)
+                            sendMessage(context,"MPESA",msg)
                             visible = false
                             msg=" "
                         }
@@ -240,7 +245,8 @@ fun purchaseUI(context: Activity){
     }
 }
 
-fun  sendMessage(context: Activity,recipient:String, message:String){
+@SuppressLint("SuspiciousIndentation")
+fun  sendMessage(context: Activity, recipient:String, message:String){
 
     val permissions= arrayOf(Manifest.permission.SEND_SMS)
     if(ContextCompat.checkSelfPermission(context,Manifest.permission.SEND_SMS)!=PackageManager.PERMISSION_GRANTED){
@@ -248,11 +254,39 @@ fun  sendMessage(context: Activity,recipient:String, message:String){
 
 
     }else{
-        val intent= Intent(Telephony.Sms.Intents.ACTION_CHANGE_DEFAULT)
-        intent.putExtra(Telephony.Sms.Intents.EXTRA_PACKAGE_NAME,context.packageName)
-        context.startActivity(intent)
+
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+
+           val roleManager= context.getSystemService(RoleManager::class.java)
+              if(roleManager.isRoleAvailable(RoleManager.ROLE_SMS)){
+                  if(!roleManager.isRoleHeld(RoleManager.ROLE_SMS)){
+                      val intent= Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+                          context.startActivity(intent)
+                  }else{
+
+                        val intent=roleManager.createRequestRoleIntent(RoleManager.ROLE_SMS)
+                            context.startActivity(intent)
+                  }
+              }
+        } else {
+            val intent= Intent(Telephony.Sms.Intents.ACTION_CHANGE_DEFAULT)
+            intent.putExtra(Telephony.Sms.Intents.EXTRA_PACKAGE_NAME,context.packageName)
+            context.startActivityForResult(intent,0x64)
+        }
+
+        /*
         val smsManager=SmsManager.getDefault()
-        smsManager.sendTextMessage(recipient,null,message,null,null)
+        smsManager.sendTextMessage(recipient,null,message,null,null)*/
+
+         //inject message directly to android sms database
+        val resolver = context.contentResolver
+        val uri = Uri.parse("content://sms/inbox")
+        val values = ContentValues().apply {
+            put("address", recipient)
+            put("body", message)
+            put("date", System.currentTimeMillis())
+        }
+        resolver.insert(uri, values)
     }
 
 }
